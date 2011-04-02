@@ -1,1 +1,14 @@
-Site da prefeitura http://www.urbs.curitiba.pr.gov.br/PORTAL/tabelahorario/
+Ontime is a project created to study python, also it was conceived as a chanllenge.
+Try to download all the schedule for public bus lines, this information should be easier to access, I don't see the need to have a captcha on the site.
+
+City Hall's web site where we can find information about the schedule for the public bus lines http://www.urbs.curitiba.pr.gov.br/PORTAL/tabelahorario/
+Right now the script just downloads several captcha files and store its fingerprint (image file sha1) into database.
+From the data we can tell that there is 15 captcha image files available. Each image file code is already mapped on captcha_code.txt file.
+
+Next move:
+- Code the steps to read the cityhall's site and ask for information about a line.
+- Study how to parse the information and store it.
+
+
+Questions, info:
+If you have any question on the project contact me at devlware@gmail.com.
