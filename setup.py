@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#from distutils.core import setup
+
 from setuptools import setup
 
 setup(name="Ontime",
@@ -8,5 +8,5 @@ setup(name="Ontime",
       license="maybe MIT",
       author="Diego W. Antunes",
       author_email="devlware@gmail.com",
-      url="http://github.com/joshthecoder/tweepy",
+      url="http://github.com/devlware/Ontime",
       keywords= "scrapper python fun")
