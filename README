@@ -9,6 +9,8 @@ Next move:
 - Code the steps to read the cityhall's site and ask for information about a line.
 - Study how to parse the information and store it.
 
+Thanks to the Python team for doing such a great programming language.
+Thanks to Leonard Richardson (leonardr@segfault.org) for releasing BeautifulSoup.
 
 Questions, info:
 If you have any question on the project contact me at devlware@gmail.com.

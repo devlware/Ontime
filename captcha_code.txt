@@ -1,16 +1,17 @@
-00RGGL4YPC.png:ga8v5z
-00ZM7TBKZF.png:diy5r2
-0107D7ZKLS.png:nfc9g4
-020NL6GPIX.png:Wk7u3
-02VOQAI0FF.png:MY5N5
-036IKBY96G.png:tke5x1
-03ZA08I5GK.png:wuj4cb
-05MVV3YCD5.png:hc3f8y
-08TC61K0U8.png:WK7F4
-0IA3BKVWWV.png:QU7Y6
-0IFF9TJH1U.png:ho6s1q
-0MC7DFP0IP.png:f57a5
-0MVRMQGP3V.png:MZ8R4
-0PPRTEZQKH.png:t7uj6x
-0ZESSPL8ZE.png:sb6n3
-1QYL66KRY4.png:aVp3q8
+
+insert into CaptchaCode (shasum, code) values ('2a460f92573bfe873b28aaa76fa72fd834ffe28f', 'ga8v5z');
+insert into CaptchaCode (shasum, code) values ('a35342a50bb7dd595a7d7598f78e3323cf55d83d', 'diy5r2');
+insert into CaptchaCode (shasum, code) values ('3bcf55237be23ed0fff61de670c2256836ff8cba', 'nfc9g4');
+insert into CaptchaCode (shasum, code) values ('9f4a46a263fe8ad613b38663a307f6335cdb5411', 'Wk7u3');
+insert into CaptchaCode (shasum, code) values ('90d5f5916ce8d8af83204178dd8c99b71bd88655', 'MY5N5');
+insert into CaptchaCode (shasum, code) values ('36d4969e2c63450dbacf4fec055b69b3c837b1aa', 'tke5x1');
+insert into CaptchaCode (shasum, code) values ('d6264d8a2b08563a298364bede350321044ccf4f', 'wuj4cb');
+insert into CaptchaCode (shasum, code) values ('12211f2daaf16e0c046fdb99d2aeb3ab6b800523', 'hc3f8y');
+insert into CaptchaCode (shasum, code) values ('23c20e4638b79e40a857fe44106f4c7b849d3e42', 'WK7F4');
+insert into CaptchaCode (shasum, code) values ('3808a4286e5afc5ee16e24ac29fec116af9a4000', 'QU7Y6');
+insert into CaptchaCode (shasum, code) values ('1880fb78df96830b9d0a440c86df9ef8b8d8ccaf', 'ho6s1q');
+insert into CaptchaCode (shasum, code) values ('6c567ecbbba5a8d9283cc609fe039b2ffb6b32ef', 'f57a5');
+insert into CaptchaCode (shasum, code) values ('9b3d2a2534cd1b5eb3a47d5efb3705a0ef2fe134', 'MZ8R4');
+insert into CaptchaCode (shasum, code) values ('bf13fd4dc6099449a8ba14cdafc6609b49e6ff59', 't7uj6x');
+insert into CaptchaCode (shasum, code) values ('1f536fd99c4aca768cd9382f87e3de1391ec5e5a', 'sb6n3');
+insert into CaptchaCode (shasum, code) values ('ca92986b59862c8c2040f22cf9b9707bc979aada', 'aVp3q8');
