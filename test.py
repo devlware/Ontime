@@ -33,82 +33,102 @@ import hashlib
 from urllib2 import Request, urlopen, URLError, HTTPError
 from BeautifulSoup import BeautifulSoup
 
-baseurl = 'http://www.urbs.curitiba.pr.gov.br'
-url = '/PORTAL/tabelahorario/tabela.php/cboLinha=342&cboTipoDia=0&cpt=%s&btnAcesso=Consultar'
-captchaurl = 'http://www.urbs.curitiba.pr.gov.br/PORTAL/tabelahorario/cap.php'
-user_agent = 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_7; en-us) AppleWebKit/533.20.25 (KHTML, like Gecko) Version/5.0.4 Safari/533.20.27'
+class OntimeTest:
 
-cookie = urllib2.HTTPCookieProcessor()
-debug = urllib2.HTTPHandler()
-opener = urllib2.build_opener(debug, cookie)
-urllib2.install_opener(opener)
+    database = 'ontime.sqlite'
+    silent = False
 
-# Create a request to download the captcha image
-request = urllib2.Request(captchaurl)
-request.add_header('User-Agent', user_agent)
-request.add_header('Content-Type', 'application/x-www-form-urlencoded')
-request.add_header('Accept', 'application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5')
-request.add_header('Accept-Encoding', 'gzip, deflate')
-request.add_header('Accept-Language', 'en-us')
-response = urllib2.urlopen(request)
+    baseurl = 'http://www.urbs.curitiba.pr.gov.br'
+    lineurl = '/PORTAL/tabelahorario/tabela.php'
+    captchaurl = 'http://www.urbs.curitiba.pr.gov.br/PORTAL/tabelahorario/cap.php'
+    user_agent = 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_7; en-us) AppleWebKit/533.20.25 (KHTML, like Gecko) Version/5.0.4 Safari/533.20.27'
+    contentType = 'application/x-www-form-urlencoded'
+    accept = 'application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5'
+    referer = 'http://www.urbs.curitiba.pr.gov.br/PORTAL/tabelahorario/index.php'
 
-# Read the response which should be an image and calculates the hash.
-imgData = response.read()
-imgFileString = str(imgData)
-h = hashlib.sha1()
-h.update(imgFileString)
-fileHash = h.hexdigest()
-print fileHash
+    def main(self):
+        captcha = self.downloadCaptcha()
+        self._log(captcha)
+        self.downloadLine(captcha)
 
-# Open database and check if the hash for the captcha image is on db.
-conn = sqlite3.connect('mydb.db')
-cur = conn.cursor()
-cur.execute('SELECT code FROM CaptchaCode WHERE shasum = ?', (fileHash, ))
-captchaCode = cur.fetchone()[0]
-cur.close()
-conn.close()
+    def downloadCaptcha(self):
+        cookie = urllib2.HTTPCookieProcessor()
+        debug = urllib2.HTTPHandler()
+        opener = urllib2.build_opener(debug, cookie)
+        urllib2.install_opener(opener)
 
-if captchaCode is None:
-    print('Captcha code not available')
-    sys.exit(1)
+        # Create a request to download the captcha image
+        request = urllib2.Request(self.captchaurl)
+        request.add_header('User-Agent', self.user_agent)
+        request.add_header('Content-Type', self.contentType)
+        request.add_header('Accept', self.accept)
+        request.add_header('Accept-Encoding', 'gzip, deflate')
+        request.add_header('Accept-Language', 'en-us')
+        response = urllib2.urlopen(request)
 
+        # Read the response which should be an image and calculates the hash.
+        imgData = response.read()
+        imgFileString = str(imgData)
+        h = hashlib.sha1()
+        h.update(imgFileString)
+        fileHash = h.hexdigest()
+        print(fileHash)
 
-url = '/PORTAL/tabelahorario/tabela.php'
-final = baseurl + url
-values = ('cboLinha'    , '342'), \
-          ('cboTipoDia'  , '0'), \
-          ('cpt'         , captchaCode), \
-          ('btnAcesso'   , 'Consultar')
-data = urllib.urlencode(values)
+        # Open database and check if the hash for the captcha image is on db.
+        conn = sqlite3.connect(self.database)
+        cur = conn.cursor()
+        cur.execute('SELECT code FROM CaptchaCode WHERE shasum = ?', (fileHash, ))
+        captchaCode = cur.fetchone()[0]
+        cur.close()
+        conn.close()
 
-# Create another request to get the data from the server. Notice that 
-# the bus line and line day are hardcode above because this is just a test.
-req = urllib2.Request(url, data)
+        if not captchaCode:
+            print('Captcha code not available')
+            sys.exit(1)
+        return captchaCode
 
-print(final)
-request = urllib2.Request(final, data)
+    def downloadLine(self, captcha):
+        final = self.baseurl + self.lineurl
 
-request.add_header('User-Agent', user_agent)
-request.add_header('Content-Type', 'application/x-www-form-urlencoded')
-request.add_header('Accept', 'application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5')
-request.add_header('Accept-Encoding', 'gzip, deflate')
-request.add_header('Accept-Language', 'en-us')
+        values = ('cboLinha'     , '342'), \
+                  ('cboTipoDia'  , '0'), \
+                  ('cpt'         , captcha), \
+                  ('btnAcesso'   , 'Consultar')
 
-try:
-    descriptor = opener.open(request)
-    data = descriptor.read()
-    descriptor.close()
-except URLError, e:
-    if hasattr(e, 'reason'):
-        print('We failed to reach a server.')
-        print('Reason: ', e.reason)
-    elif hasattr(e, 'code'):
-        print('The server couldn\'t fulfill the request.')
-        print('Error code: ', e.code)
-    else:
-        print('no problems found')                
+        print(final)
+        request = urllib2.Request(final, urllib.urlencode(values))
 
-# here we should be able to parse all the data from the server.
-soup = BeautifulSoup(data)
-print(soup)
+        request.add_header('User-Agent', self.user_agent)
+        request.add_header('Content-Type', self.contentType)
+        request.add_header('Accept:', self.accept)
+        request.add_header('Referer:', self.referer)
+        request.add_header('Accept-Encoding', 'gzip, deflate')
+        request.add_header('Accept-Language', 'en-us')
 
+        try:
+            response = urllib2.urlopen(request)
+        except URLError, e:
+            if hasattr(e, 'reason'):
+                print('We failed to reach a server.')
+                print('Reason: ', e.reason)
+                sys.exit(1)
+            elif hasattr(e, 'code'):
+                print('The server couldn\'t fulfill the request.')
+                print('Error code: ', e.code)
+                sys.exit(1)
+            else:
+                print('no problems found')
+
+        # here we should be able to parse all the data from the server.
+        soup = BeautifulSoup(response.read())
+
+        arq = open('web.html', 'w+')
+        arq.write(str(soup))
+        arq.close()
+
+    def _log(self, string):
+        if not self.silent:
+            print(string)
+
+if __name__ == '__main__':
+    OntimeTest().main()
