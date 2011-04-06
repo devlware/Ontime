@@ -1,3 +1,8 @@
-Thanks to the people listed here for their contributions!
+Thanks to the people listed here for their contributions.
 
 Thiago Galesi for helping with issues on editing python code.
+Carlos Nascimento for his code for cruzalinhas (https://github.com/chesterbr/cruzalinhas) which was used as a helper.
+Felipe Kellermann for his code on (http://github.com/felipek/Consumo).
+Leonard Richardson for his work on BeautifulSoup (http://www.crummy.com/software/BeautifulSoup).
+Michael Foord for his blog (http://www.voidspace.org.uk/)
+D. Richard Hipp for creating SQLite (http://sqlite.org/index.html) which is a nice database.
