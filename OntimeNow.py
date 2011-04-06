@@ -1,8 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/python2.6 -O
 # -*- coding: utf-8 -*-
 # 
-# Test
-# This app is used to test the execution of Ontime.
+# OntimeNow
+# This program was created to download all the bus lines from the database file
+# defined on file ontime.sqlite.
 #
 # Copyright (C) 2011 by Diego W. Antunes <devlware@gmail.com>
 #
@@ -25,110 +26,216 @@
 # THE SOFTWARE.
 #
 
-import urllib2
-import urllib
+import cookielib, urllib2, urllib
 import sqlite3
 import getopt, sys
 import hashlib
+import random
+import string
+import time
+import os
+from os.path import join
 from urllib2 import Request, urlopen, URLError, HTTPError
 from BeautifulSoup import BeautifulSoup
 
-class OntimeTest:
+class OntimeNow:
+    """ The program is pretty simple, just run it on the command line
+        without any parameter and it should populate the html directory
+        with 547 different file. Each file should have the bus schedule
+        for a point in the line. """
 
     database = 'ontime.sqlite'
-    silent = False
+    debug = False
 
     baseurl = 'http://www.urbs.curitiba.pr.gov.br'
+    indexurl = '/PORTAL/tabelahorario/index.php'
     lineurl = '/PORTAL/tabelahorario/tabela.php'
-    captchaurl = 'http://www.urbs.curitiba.pr.gov.br/PORTAL/tabelahorario/cap.php'
+    captchaurl = '/PORTAL/tabelahorario/cap.php'
     user_agent = 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_7; en-us) AppleWebKit/533.20.25 (KHTML, like Gecko) Version/5.0.4 Safari/533.20.27'
     contentType = 'application/x-www-form-urlencoded'
     accept = 'application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5'
-    referer = 'http://www.urbs.curitiba.pr.gov.br/PORTAL/tabelahorario/index.php'
 
     def main(self):
-        captcha = self.downloadCaptcha()
-        self._log(captcha)
-        self.downloadLine(captcha)
+        """ Main method, initialize some variables and call the main loop method. """
 
-    def downloadCaptcha(self):
-        cookie = urllib2.HTTPCookieProcessor()
+        _theCookie = None
+        _cj = None
+        _opener = None
+
+        self.initUrlLib2Handlers()
+        self.loopOverLines()
+
+    def loopOverLines(self):
+        """ This is where we loop over the available lines and call the
+            downloader method. """
+
+        conn = sqlite3.connect(self.database)
+        cur = conn.cursor()
+        cur.execute('SELECT pk FROM Line WHERE pk < 20')
+        pkas = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        for i in pkas:
+            self.downloadLineData(i[0])
+            time.sleep(1)
+
+    def updateLineTable(self, line):
+        """ This method is used to save which"""
+
+        print(type(line))
+        conn = sqlite3.connect(self.database)
+        cur = conn.cursor()
+        cur.execute('UPDATE Line SET downloaded = 1 WHERE pk=?', (line, ))
+        conn.commit()
+        cur.close()
+        conn.close()
+            
+    def initUrlLib2Handlers(self):
+        """ Initialize urllib2 handlers """
+
+        self._theCookie = None
+        self._cj = cookielib.CookieJar()
+        cookie = urllib2.HTTPCookieProcessor(self._cj)
         debug = urllib2.HTTPHandler()
-        opener = urllib2.build_opener(debug, cookie)
-        urllib2.install_opener(opener)
+        self._opener = urllib2.build_opener(debug, cookie)
+        urllib2.install_opener(self._opener)
+    
+    def createHeader(self, url, withCookie = False, withReferer = None):
+        """ Create a default header for the requests """
 
-        # Create a request to download the captcha image
-        request = urllib2.Request(self.captchaurl)
+        request = urllib2.Request(url)
         request.add_header('User-Agent', self.user_agent)
         request.add_header('Content-Type', self.contentType)
         request.add_header('Accept', self.accept)
         request.add_header('Accept-Encoding', 'gzip, deflate')
         request.add_header('Accept-Language', 'en-us')
-        response = urllib2.urlopen(request)
+        request.add_header('Referer', withReferer)
 
-        # Read the response which should be an image and calculates the hash.
-        imgData = response.read()
-        imgFileString = str(imgData)
+        if withCookie:
+            cookieStr = self._theCookie.name + '=' + self._theCookie.value
+            self._log(cookieStr)
+            request.add_header('Cookie', cookieStr)
+        else:
+            request.add_header('Cookie', '')
+            
+        return request
+
+    def downloadLineData(self, line = 1):
+        """ Here we have some fun! """
+
+        # Create a request to get the index page
+        aUrl = self.baseurl + self.indexurl
+        referer = 'http://www.urbs.curitiba.pr.gov.br'
+        descriptor = self.runRequest(self.createHeader(aUrl, False, referer))
+        del request
+
+        cookies = []
+        for i in self._cj:
+            cookies.append(i)
+        if cookies[0]:
+            self._theCookie = cookies[0]
+        descriptor.close()
+
+        # Now, create a request to get the image captcha
+        referer = 'http://www.urbs.curitiba.pr.gov.br/PORTAL/tabelahorario/'
+        request = self.createHeader(self.baseurl + self.captchaurl, True, referer)
+        descriptor =  self.runRequest(request)
+        del request
+
+        # Read the response which should be an image.
+        imgFileString = str(descriptor.read())
+        descriptor.close()
         h = hashlib.sha1()
         h.update(imgFileString)
         fileHash = h.hexdigest()
-        print(fileHash)
+        self._log(fileHash)
 
-        # Open database and check if the hash for the captcha image is on db.
-        conn = sqlite3.connect(self.database)
-        cur = conn.cursor()
-        cur.execute('SELECT code FROM CaptchaCode WHERE shasum = ?', (fileHash, ))
-        captchaCode = cur.fetchone()[0]
-        cur.close()
-        conn.close()
+        if self.debug:
+            imgFilename = ''.join(random.choice(string.ascii_uppercase + string.digits) for x in range(8)) + '.png'
+            fd = open(imgFilename, 'w+')
+            fd.write(imgFileString)
+            fd.close()
 
-        if not captchaCode:
-            print('Captcha code not available')
-            sys.exit(1)
-        return captchaCode
+        # Query the database for the captcha code based on the hash
+        captcha = self.queryDB(fileHash)
 
-    def downloadLine(self, captcha):
-        final = self.baseurl + self.lineurl
-
-        values = ('cboLinha'     , '342'), \
+        # Create the POST message
+        values = ('cboLinha'     , line), \
                   ('cboTipoDia'  , '0'), \
                   ('cpt'         , captcha), \
                   ('btnAcesso'   , 'Consultar')
 
-        print(final)
-        request = urllib2.Request(final, urllib.urlencode(values))
+        referer = 'http://www.urbs.curitiba.pr.gov.br/PORTAL/tabelahorario/'
+        request = self.createHeader(self.baseurl + self.lineurl, True, referer)
+        request.add_data(urllib.urlencode(values))
+        descriptor = self.runRequest(request)
+        del request
 
-        request.add_header('User-Agent', self.user_agent)
-        request.add_header('Content-Type', self.contentType)
-        request.add_header('Accept:', self.accept)
-        request.add_header('Referer:', self.referer)
-        request.add_header('Accept-Encoding', 'gzip, deflate')
-        request.add_header('Accept-Language', 'en-us')
+        # Change dir so we save the line data for future parse
+        home = os.path.abspath(os.environ['PWD'])
+        dirName = join(home, 'html')
+        if os.path.exists(dirName):
+            os.chdir(dirName)
+        else:
+            self._log('Html directory does not exist, exiting...')
+            sys.exit(1)
 
+        htmlData = descriptor.read()
+        descriptor.close()
+
+        # Now, save it please!
+        htmlFilename = ''.join(random.choice(string.ascii_uppercase + string.digits) for x in range(16)) + '.html'
+        fd = open(htmlFilename, 'w')
+        fd.write(htmlData)
+        fd.close()
+
+        os.chdir(home)
+
+        # Some tests on how parse data... still not working and should be moved to another py file
+        soup = BeautifulSoup(htmlData)
+        box = soup.findAll('font' ,{'class' : 'textoPonto'})
+#        box = soup.findAll("font", {"class" : "textoLinha"})
+        if box:
+            for i in box:
+                print(i.contents)
+                self.updateLineTable(line)
+
+    def runRequest(self, urlRequest):
         try:
-            response = urllib2.urlopen(request)
+            descriptor = self._opener.open(urlRequest)
         except URLError, e:
             if hasattr(e, 'reason'):
                 print('We failed to reach a server.')
                 print('Reason: ', e.reason)
-                sys.exit(1)
             elif hasattr(e, 'code'):
                 print('The server couldn\'t fulfill the request.')
                 print('Error code: ', e.code)
-                sys.exit(1)
-            else:
-                print('no problems found')
+            sys.exit(1)
 
-        # here we should be able to parse all the data from the server.
-        soup = BeautifulSoup(response.read())
+        return descriptor
 
-        arq = open('web.html', 'w+')
-        arq.write(str(soup))
-        arq.close()
+    def queryDB(self, value):
+        """ Open database and check if the hash for the captcha image is
+            available. """
+
+        conn = sqlite3.connect(self.database)
+        cur = conn.cursor()
+        cur.execute('SELECT code FROM CaptchaCode WHERE shasum = ?', (value, ))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if not row:
+            self._log('Captcha code not available')
+            sys.exit(1)
+        return row[0]
 
     def _log(self, string):
-        if not self.silent:
+        """ Logs strings """
+
+        if self.debug:
             print(string)
 
 if __name__ == '__main__':
-    OntimeTest().main()
+    OntimeNow().main()
