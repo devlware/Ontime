@@ -1,15 +1,35 @@
 #!/usr/bin/python
-# coding: utf-8
+# -*- coding: utf-8 -*-
 # 
-# ontime
-#
+# Ontime
 # Software to download the schedule for all public bus lines in Curitiba.
-# Please do *NOT* use it for illegal purposes.
 #
-# Patches & fixes: Diego W. Antunes <devlware@gmail.com>
+# Copyright (C) 2011 by Diego W. Antunes <devlware@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+#
 
 import urllib2
 from urllib2 import Request, urlopen, URLError, HTTPError
+from BeautifulSoup import BeautifulSoup
+import os
+from os.path import join, getsize
 import tempfile
 import random
 import thread, time
@@ -17,123 +37,182 @@ import threading
 import string
 import sqlite3
 import getopt, sys
-import os
-from os.path import join, getsize
 import hashlib
 import datetime
 
 __version__ = "1.0"
 __author__ = 'Diego W. Antunes'
-__license__ = 'Maybe MIT'
+__license__ = 'MIT'
 
 
-CAPURL = 'http://www.urbs.curitiba.pr.gov.br/PORTAL/tabelahorario/cap.php'
+class Config(object):
+    """ """
+    baseurl = 'http://www.urbs.curitiba.pr.gov.br'
+    horariourl = 'PORTAL/tabelahorario/'
+    captchaurl = 'PORTAL/tabelahorario/cap.php'
+    silent = False
+    
+    DIAS = ["todos", "util", "sabado", "domingo"]
+    #SENTIDOS = ["ida", "volta"]
+    #PERIODOS = ["manha", "entrepico", "tarde"]
+    
+    DICT_DIAS = dict(zip("0123", DIAS))
+    #DICT_SENTIDOS = dict(zip("IV", SENTIDOS))
+    
+    database = 'ontime.sqlite'
+    CreateCaptchaCode = 'CREATE TABLE IF NOT EXISTS CaptchaCode \
+        (pk INTEGER PRIMARY KEY NOT NULL, shasum TEXT, code TEXT)'
+    CreateCaptchaSha1 = 'CREATE TABLE IF NOT EXISTS CaptchaSha1 \
+        (pk INTEGER PRIMARY KEY NOT NULL, fn TEXT, shasum TEXT, size INTEGER, occurrences INTEGER)'
+    CreateSchedule = 'CREATE TABLE IF NOT EXISTS Schedule \
+        (pk INTEGER PRIMARY KEY NOT NULL, time TEXT, hasElevator INTEGER)'
+    CreatePoint = 'CREATE TABLE IF NOT EXISTS Point \
+        (pk INTEGER PRIMARY KEY NOT NULL, pointName TEXT validity TEXT, weekDay INTEGER)'
+    CreateLine = 'CREATE TABLE IF NOT EXISTS Line \
+        (pk INTEGER PRIMARY KEY NOT NULL, lineName TEXT)'
 
-class CaptchaException(Exception):
+class OntimeException(Exception):
     """Captcha exception."""
 
-class IMBDataBase():
+class Schedule(object):
+    """ """
+    def __init__(self):
+        pk
+        time
+        hasElevator = None
+
+class Point(object):
+    """ """
+    def __init__(self):
+        pk
+        pointName
+        validity
+        weekDay
+        scheduleID
+        self.setWeekDay(weekDay)
+    
+    def setWeekDay(self, day):
+        """ """
+        self._weekDay = day
+
+class Line(object):
     """ """
 
-    def __init__(self, database = None):
-        """ """
-        self.data = []
-        self.conn = None
-        self.cur = None
-        self.setDatabase(database)
-        self.connectDB()
+    def __init__(self, pk, lineName = None):
+        self._pk
+        self._lineName
+        self.setLineName(lineName)
 
-    def setDatabase(self, database):
-        """ Sets the database used to store the captcha image file. """
-        if len(database) > 4:
-            self.database = database
-        else:
-            print('Database name < 4')
+    def setPk(self, aCode)
+        self._pk = aCode
 
-    def connectDB(self):
+    def setLineName(self, line):
+        self._lineName = line
+
+    def data(self):
+        return self._data
+
+class IMBDataBase(Config):
+    """ """
+    _conn = None
+    _cursor = None
+
+    def __init__(self):
         """ """
-        self.conn = sqlite3.connect(self.database)
-        self.cur = self.conn.cursor()
+        self._conn = sqlite3.connect(Config.database)
+        self._cursor = self._conn.cursor()
 
         try:
-            self.cur.execute('CREATE TABLE CaptchaSha1 (pk INTEGER PRIMARY KEY NOT NULL, fn TEXT, shasum TEXT, size INTEGER, occurrences INTEGER)')
-        except sqlite3.OperationalError, msg:
-            print msg
-
-    def createDB(self):
-        """ """
-        print "running..."
-
-        try:
-            # Create table
-            self.cur.execute('CREATE TABLE CaptchaSha1 (pk INTEGER PRIMARY KEY NOT NULL, fn TEXT, shasum TEXT, size INTEGER, occurrences INTEGER)')
+            # Create all the tables necessary to the project
+            self._cursor.execute(CreateCaptchaSha1)
+            self._cursor.execute(CreateCaptchaCode)
+            self._cursor.execute(CreateSchedule)
+            self._cursor.execute(CreatePoint)
+            self._cursor.execute(CreateLine)
         except sqlite3.Error, e:
-            print "An error occurred:", e.args[0]
-            print "Problems in db creation"
-            return 0
+            print "Could not create table...", e.args[0]
+            sys.exit(1)
 
-        # Save (commit) the changes
         try:
-            self.conn.commit()
-            print "Banco criado com sucesso"
-#            self.cur.close()
+            self._conn.commit()
         except sqlite3.Error, e:
-            print "An error occurred:", e.args[0]
+            print "Could no commit table creation...", e.args[0]
         
     def saveData(self, fn, sha, size):
         """ """
 
- #       cur = self.conn_.cursor()
         try:
-            self.cur.execute('SELECT pk, occurrences FROM CaptchaSha1 WHERE shasum = ?', (sha, ))
-            row = self.cur.fetchone()
+            self._cursor.execute('SELECT pk, occurrences FROM CaptchaSha1 WHERE shasum = ?', (sha, ))
+            row = self._cursor.fetchone()
             
             if row:
                 pk = row[0]
                 occ = row[1]
                 try:
                     aTuple = (occ+1, pk, )
-                    self.cur.execute('UPDATE CaptchaSha1 SET occurrences = ? WHERE pk = ?', aTuple)
-                    self.conn.commit()
+                    self._cursor.execute('UPDATE CaptchaSha1 SET occurrences = ? WHERE pk = ?', aTuple)
+                    self._conn.commit()
                 except sqlite3.Error, e:
                     print "An error occurred:", e.args[0]
+                    sys.exit(1)
             else:
-                # Insert a row of data
                 t = (fn, sha, size, 1)
                 try:
-                    self.cur.execute('INSERT INTO CaptchaSha1 (fn, shasum, size, occurrences) values (?, ?, ?, ?)', t)
-                    self.conn.commit()
+                    self._cursor.execute('INSERT INTO CaptchaSha1 (fn, shasum, size, occurrences) values (?, ?, ?, ?)', t)
+                    self._conn.commit()
                 except sqlite3.Error, e:
                     print "An error occurred:", e.args[0]
+                    sys.exit(1)
 
         except sqlite3.Error, e:
             print "An error occurred:", e.args[0]
-            return 0
+            sys.exit(2)
 
     def closeDB(self):
         """ """
-        self.conn.close()       
+        self._cursor.close()
+        self._conn.close()
 
-class MyThread(threading.Thread):
+#class MyThread(threading.Thread):
+class MyClass(ScheduleLine):
     """ """
-
-#    def __init__(self):
-#        """ """
-#        self.name = name
-#        self.numThreads += 1
+    def __init__(self):
+        """ """
+        print "%s started!" % self.getName()
+        ScheduleLine.__init__(self,  lineName, weekDay, captchaCode)
 
     def run(self):
         """ """
-        print "%s started!" % self.getName()
-        values = {'name' : 'Diego Antunes',
-              'location' : 'Curitiba',
-              'language' : 'Python' }
+		cookie = urllib2.HTTPCookieProcessor()
+		debug = urllib2.HTTPHandler()
+		self._opener = urllib2.build_opener(debug, cookie)
+		self._baseurl = baseurl
+		self._data = { 'info' : [] }
 
-        req = urllib2.Request(CAPURL)
+		urllib2.install_opener(self._opener)
+
+    def request(self, data = None):
+    	"""Method used to request server/carrier data."""
+		final = self._baseurl + '/' + url
+
+		request = urllib2.Request(final)
+		request.add_header('User-Agent', "Ontime/%s" % __version__)
+		request.add_header('Accept-Encoding', 'gzip')
+		if data is not None:
+			request.add_data(data)
+		descriptor = self._opener.open(request)
+		data = descriptor.read()
+		descriptor.close()
+
+		soup = BeautifulSoup(data)
+		handler(soup)
+
+
+    def getCaptcha(self, data = None):
+
+        req = urllib2.Request(captchaurl)
         
         try:
-            #data = urllib.parse.urlencode(values)
-            #req = urllib.request.Request(url, data)
             response = urllib2.urlopen(req)
         except URLError, e:
             if hasattr(e, 'reason'):
@@ -147,11 +226,47 @@ class MyThread(threading.Thread):
 
         imgData = response.read()
         imgFilename = ''.join(random.choice(string.ascii_uppercase + string.digits) for x in range(10)) + '.png'
-        s = str(imgData)
-        open(imgFilename, "w").write(s)
-# This might be not necessary if the sleep on download works...        time.sleep(1.0)
-        print "%s finished!" % self.getName()
+        imgFileString = str(imgData)
+        h = hashlib.sha1()
+        h.update(imgFileString)
+        fileHash = h.hexdigest()
 
+        self._cursor.execute('SELECT code FROM CaptchaCode WHERE shasum = ?', (fileHash, ))
+        self.captchaCode = self._cursor.fetchone()[0]
+        if not self.captchaCode:
+            return None
+        return self.captchaCode
+
+    def _parseMenu(self, soup):
+        box = soup.find('select')
+        if box is None:
+        else:
+            boxd = box.findAll()
+
+        menu = soup.find(id="cboLinha")
+        menuOps = menu.findAll("option")
+        a = []
+        b = []
+        for i in menuOps:
+            a.append(i.contents[0])
+            b.append(i.attrs[0][1])
+            """
+            Codigo para colocar no banco de dados as informacoes
+            for i in range(len(a)):
+                cursor.execute('INSERT INTO Line (lineName, pk) values (?, ?)', (a[i], int(str(b[i]))))
+            """
+
+        tipoDia = soup.find(id="cboTipoDia")
+        opcoes = tipoDia.findAll("option") # retorna uma lista
+        for i in opcoes:
+            print i.contents
+            print i.attrs[0][1]
+
+
+        #como pegar o numero de um option
+        a[1].attrs[0][1]
+        # o retorno
+        u'528'
 
 def usage():
     """Returns usage message."""
