@@ -128,7 +128,6 @@ class OntimeNow:
         aUrl = self.baseurl + self.indexurl
         referer = 'http://www.urbs.curitiba.pr.gov.br'
         descriptor = self.runRequest(self.createHeader(aUrl, False, referer))
-        del request
 
         cookies = []
         for i in self._cj:
@@ -141,7 +140,6 @@ class OntimeNow:
         referer = 'http://www.urbs.curitiba.pr.gov.br/PORTAL/tabelahorario/'
         request = self.createHeader(self.baseurl + self.captchaurl, True, referer)
         descriptor =  self.runRequest(request)
-        del request
 
         # Read the response which should be an image.
         imgFileString = str(descriptor.read())
@@ -170,7 +168,6 @@ class OntimeNow:
         request = self.createHeader(self.baseurl + self.lineurl, True, referer)
         request.add_data(urllib.urlencode(values))
         descriptor = self.runRequest(request)
-        del request
 
         # Change dir so we save the line data for future parse
         home = os.path.abspath(os.environ['PWD'])
